@@ -4,38 +4,49 @@
 export PATH="$PATH:$HOME/go/bin:$HOME/.local/bin"
 AGE_BIN=$(command -v age || echo "/usr/bin/age")
 
-# Use Environment Variables or fallback to standard chezmoi paths
+# Use Environment Variables or fallback to standard paths
 FIDO2_IDENTITY="${AGE_FIDO2_IDENTITY:-$HOME/.config/chezmoi/age-identity.txt}"
 RECOVERY_RECIPIENT="${AGE_RECOVERY_RECIPIENT}"
 
-INPUT_FILE="${@: -1}"
-ARGS=("${@:1:$(($# - 1))}")
+IS_DECRYPT=false
+NEW_ARGS=()
 
-if [[ "$*" == *"--decrypt"* ]] || [[ "$*" == *"-d"* ]]; then
-    NEW_ARGS=()
-    for arg in "${ARGS[@]}"; do
-        NEW_ARGS+=("$arg")
-    done
-    exec "$AGE_BIN" "${NEW_ARGS[@]}" -i "$FIDO2_IDENTITY" "$INPUT_FILE"
+# Safely parse all incoming arguments from chezmoi
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -d|--decrypt)
+            IS_DECRYPT=true
+            NEW_ARGS+=("$1")
+            shift
+            ;;
+        -r|--recipient|-R|--recipients-file)
+            # Strip out existing recipient flags and their values
+            shift 2
+            ;;
+        --recipient=*|--recipients-file=*)
+            # Strip out inline recipient flags
+            shift
+            ;;
+        -r*|-R*)
+            # Strip out short-form attached recipient flags
+            shift
+            ;;
+        *)
+            # Keep everything else (-e, --armor, -o, and any input files)
+            NEW_ARGS+=("$1")
+            shift
+            ;;
+    esac
+done
+
+if [ "$IS_DECRYPT" = true ]; then
+    # Decryption only needs the identity file
+    exec "$AGE_BIN" -i "$FIDO2_IDENTITY" "${NEW_ARGS[@]}"
 else
-    NEW_ARGS=()
-    SKIP_NEXT=false
-    for arg in "${ARGS[@]}"; do
-        if [ "$SKIP_NEXT" = true ]; then
-            SKIP_NEXT=false
-            continue
-        fi
-        if [ "$arg" = "-r" ] || [ "$arg" = "--recipient" ]; then
-            SKIP_NEXT=true
-            continue
-        fi
-        NEW_ARGS+=("$arg")
-    done
-    
-    # If a recovery recipient is defined in the environment, append it
+    # Encryption passes the identity file as a recipient (-i) alongside the recovery key
     if [ -n "$RECOVERY_RECIPIENT" ]; then
-        exec "$AGE_BIN" "${NEW_ARGS[@]}" -r "$RECOVERY_RECIPIENT" -i "$FIDO2_IDENTITY" "$INPUT_FILE"
+        exec "$AGE_BIN" -i "$FIDO2_IDENTITY" -r "$RECOVERY_RECIPIENT" "${NEW_ARGS[@]}"
     else
-        exec "$AGE_BIN" "${NEW_ARGS[@]}" -i "$FIDO2_IDENTITY" "$INPUT_FILE"
+        exec "$AGE_BIN" -i "$FIDO2_IDENTITY" "${NEW_ARGS[@]}"
     fi
 fi
