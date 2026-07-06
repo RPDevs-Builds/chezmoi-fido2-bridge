@@ -1,0 +1,41 @@
+#!/bin/bash
+
+# Ensure age is in the path
+export PATH="$PATH:$HOME/go/bin:$HOME/.local/bin"
+AGE_BIN=$(command -v age || echo "/usr/bin/age")
+
+# Use Environment Variables or fallback to standard chezmoi paths
+FIDO2_IDENTITY="${AGE_FIDO2_IDENTITY:-$HOME/.config/chezmoi/age-identity.txt}"
+RECOVERY_RECIPIENT="${AGE_RECOVERY_RECIPIENT}"
+
+INPUT_FILE="${@: -1}"
+ARGS=("${@:1:$(($# - 1))}")
+
+if [[ "$*" == *"--decrypt"* ]] || [[ "$*" == *"-d"* ]]; then
+    NEW_ARGS=()
+    for arg in "${ARGS[@]}"; do
+        NEW_ARGS+=("$arg")
+    done
+    exec "$AGE_BIN" "${NEW_ARGS[@]}" -i "$FIDO2_IDENTITY" "$INPUT_FILE"
+else
+    NEW_ARGS=()
+    SKIP_NEXT=false
+    for arg in "${ARGS[@]}"; do
+        if [ "$SKIP_NEXT" = true ]; then
+            SKIP_NEXT=false
+            continue
+        fi
+        if [ "$arg" = "-r" ] || [ "$arg" = "--recipient" ]; then
+            SKIP_NEXT=true
+            continue
+        fi
+        NEW_ARGS+=("$arg")
+    done
+    
+    # If a recovery recipient is defined in the environment, append it
+    if [ -n "$RECOVERY_RECIPIENT" ]; then
+        exec "$AGE_BIN" "${NEW_ARGS[@]}" -r "$RECOVERY_RECIPIENT" -i "$FIDO2_IDENTITY" "$INPUT_FILE"
+    else
+        exec "$AGE_BIN" "${NEW_ARGS[@]}" -i "$FIDO2_IDENTITY" "$INPUT_FILE"
+    fi
+fi
