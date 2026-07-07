@@ -1,3 +1,5 @@
 #!/bin/bash
-export PATH=$PATH:~/go/bin
-age -d -i ~/.config/chezmoi/age-identity.txt "$@"
+export PATH="$PATH:$HOME/go/bin:$HOME/.local/bin"
+FIDO2_IDENTITY="${AGE_FIDO2_IDENTITY:-$HOME/.config/chezmoi/age-identity.txt}"
+
+exec age -d -i "$FIDO2_IDENTITY" "$@"
