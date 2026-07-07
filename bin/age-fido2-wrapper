@@ -1,12 +1,11 @@
 #!/bin/bash
 
-# Ensure age is in the path
 export PATH="$PATH:$HOME/go/bin:$HOME/.local/bin"
-AGE_BIN=$(command -v age || echo "/usr/bin/age")
+AGE_BIN="/usr/bin/age"
 
-# Use Environment Variables or fallback to standard paths
-FIDO2_IDENTITY="${AGE_FIDO2_IDENTITY:-$HOME/.config/chezmoi/age-identity.txt}"
-RECOVERY_RECIPIENT="${AGE_RECOVERY_RECIPIENT}"
+# Hardcoded identity and recovery variables
+FIDO2_IDENTITY="$HOME/.config/chezmoi/age-identity.txt"
+RECOVERY_RECIPIENT="age1thv9564kghr294kqf9f8fn5y27kdchqvprdlj65h8xd5ef5d738sgkcj28"
 
 IS_DECRYPT=false
 NEW_ARGS=()
@@ -44,9 +43,5 @@ if [ "$IS_DECRYPT" = true ]; then
     exec "$AGE_BIN" -i "$FIDO2_IDENTITY" "${NEW_ARGS[@]}"
 else
     # Encryption passes the identity file as a recipient (-i) alongside the recovery key
-    if [ -n "$RECOVERY_RECIPIENT" ]; then
-        exec "$AGE_BIN" -i "$FIDO2_IDENTITY" -r "$RECOVERY_RECIPIENT" "${NEW_ARGS[@]}"
-    else
-        exec "$AGE_BIN" -i "$FIDO2_IDENTITY" "${NEW_ARGS[@]}"
-    fi
+    exec "$AGE_BIN" -i "$FIDO2_IDENTITY" -r "$RECOVERY_RECIPIENT" "${NEW_ARGS[@]}"
 fi

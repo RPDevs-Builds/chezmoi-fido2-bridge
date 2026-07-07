@@ -1,0 +1,3 @@
+#!/bin/bash
+export PATH=$PATH:~/go/bin
+age -e -i ~/.config/chezmoi/age-identity.txt "$@"
